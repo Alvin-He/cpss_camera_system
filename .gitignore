@@ -1,3 +1,7 @@
+# ignore build directory
+build
+
+# default cmake ignores
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles

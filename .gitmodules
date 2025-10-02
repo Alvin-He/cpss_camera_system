@@ -1,0 +1,9 @@
+[submodule "libs/fmt"]
+	path = libs/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "libs/opencv"]
+	path = libs/opencv
+	url = https://github.com/opencv/opencv.git
+[submodule "libs/opencv_contrib"]
+	path = libs/opencv_contrib
+	url = https://github.com/opencv/opencv_contrib
