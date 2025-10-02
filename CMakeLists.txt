@@ -21,22 +21,15 @@ function(fmt)
     add_subdirectory(libs/fmt EXCLUDE_FROM_ALL SYSTEM)    
 endfunction(fmt)
 fmt()
+
 # opencv
-function(opencv)
-    set(ENABLE_FAST_MATH ON)
-    set(WITH_TBB ON)
-    set(WITH_QT OFF)
-    set(WITH_OPENGL ON)
-    set(WITH_GSTREAMER ON)
-    set(WITH_EIGEN ON)
-    set(OPENCV_ENABLE_NONFREE ON)
-    set(OPENCV_EXTRA_MODULES_PATH libs/opencv_contrib/modules)
-    set(INSTALL_PYTHON_EXAMPLES OFF)
-    set(INSTALL_C_EXAMPLES OFF)
-    set(BUILD_EXAMPLES OFF)
-endfunction(opencv)
-opencv()
+set(OPENCV_MAP_IMPORTED_CONFIG "")
+find_package(OpenCV REQUIRED PATHS libs/opencv)
 
 # main executable
 add_executable(csys src/main.cpp)
-target_link_libraries(csys PUBLIC fmt::fmt)
+
+target_link_libraries(csys 
+    PUBLIC fmt::fmt
+    PUBLIC ${OpenCV_LIBS}
+)

@@ -1,6 +1,9 @@
 # ignore build directory
 build
 
+# ignore content of libs built from libs_sources
+/libs/opencv/*
+
 # default cmake ignores
 CMakeLists.txt.user
 CMakeCache.txt
