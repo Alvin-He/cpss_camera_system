@@ -29,9 +29,11 @@ ExternalProject_Add(
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DCMAKE_BUILD_TYPE=Release
-        # -DBUILD_SHARED_LIBS=OFF # Or ON, depending on your needs
+        -DCMAKE_CXX_STANDARD=23
+        -DCMAKE_C_STANDARD=23
+        -DBUILD_SHARED_LIBS=OFF # off cuz we aren't installing to a normal location so we won't have the right env vars
         -DBUILD_EXAMPLES=OFF
-        -DBUILD_TESTS=ON
+        -DBUILD_TESTS=OFF
         -DENABLE_FAST_MATH=ON
         -DWITH_TBB=ON
         -DWITH_QT=OFF

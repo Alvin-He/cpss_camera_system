@@ -7,3 +7,6 @@ Code comitted to this repository should not rely on platform dependent code. (ak
 Targets should be compiled to amd64 or x64 architectures
 
 C++ Version is 23
+
+Configure and build libs_sources first before attemping to configure the top level CMakeLists. 
+libs_sources contain a CMakeLists file that builds necessary libraries that is required by the rest of the program
