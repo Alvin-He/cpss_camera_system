@@ -1,9 +1,16 @@
 [submodule "libs/fmt"]
 	path = libs/fmt
 	url = https://github.com/fmtlib/fmt
+	shallow = true
 [submodule "libs/opencv"]
 	path = libs_sources/opencv/opencv
 	url = https://github.com/opencv/opencv.git
+	shallow = true
 [submodule "libs/opencv_contrib"]
 	path = libs_sources/opencv/opencv_contrib
 	url = https://github.com/opencv/opencv_contrib
+	shallow = true
+[submodule "libs_sources/libjxl"]
+	path = libs_sources/libjxl
+	url = https://github.com/libjxl/libjxl.git
+	shallow = true
