@@ -9,6 +9,8 @@
 
 class OutputProcessor {
     public: 
+        OutputProcessor() {}
+
         operator JxlEncoderOutputProcessor()  {
             return JxlEncoderOutputProcessor {
                 .opaque = this,
@@ -21,12 +23,16 @@ class OutputProcessor {
 
         static void* get_buffer(void* opaque, size_t* size) {
             OutputProcessor* self = reinterpret_cast<OutputProcessor*>(opaque);
-            self->buffer.reserve(self->position + *size);
+            // basic string is better than std::vector cuz of this one feature lmao
+            // why tf did wg21 not give std::vector resize_and_overwrite
+            self->buffer.resize_and_overwrite(self->position + *size, [](uint8_t*, size_t s){ return s; });
+            fmt::println("extend {}", self->position + *size);
             return self->buffer.data() + self->position; 
         };
 
         static void release_buffer(void* opaque, size_t written_bytes) {
             OutputProcessor* self = reinterpret_cast<OutputProcessor*>(opaque);
+            fmt::println("wrote {}", written_bytes);
             self->position += written_bytes;
         };
 
@@ -63,7 +69,8 @@ class OutputProcessor {
     private:
         size_t position = 0;
         uint64_t finalPosition = 0;
-        std::vector<uint8_t> buffer {}; 
+        std::basic_string<uint8_t> buffer {}; 
+
 };
 
 class Encoder {
@@ -167,37 +174,18 @@ public:
         status = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_DECODING_SPEED, 0);
 
         status = JxlEncoderSetColorEncoding(this->ptr_jxl.get(), &encoding); 
-        // status = JxlEncoderSetOutputProcessor(this->ptr_jxl.get(), this->outputProcessor);
+        status = JxlEncoderSetOutputProcessor(this->ptr_jxl.get(), this->outputProcessor);
 
         status = JxlEncoderAddImageFrame(settings, &pixelFormat, static_cast<const void*>(image.ptr<uint8_t>()), image.total() * image.elemSize());
         JxlEncoderCloseInput(ptr_jxl.get()); 
 
-        // status = JxlEncoderFlushInput(this->ptr_jxl.get());
-        // this->outputProcessor.writeFile();
+        status = JxlEncoderFlushInput(this->ptr_jxl.get());
+        this->outputProcessor.writeFile();
 
-        std::ofstream stream;
-        stream.open("test.jxl", std::ios::out | std::ios::binary);
-
-        const size_t buffer_size = 16384;  // 16KB chunks
-            std::vector<uint8_t> compressed(buffer_size);
-            JxlEncoderStatus process_result = JXL_ENC_NEED_MORE_OUTPUT;
-            while (process_result == JXL_ENC_NEED_MORE_OUTPUT) {
-                uint8_t* next_out = compressed.data();
-                size_t avail_out = buffer_size;
-                process_result = JxlEncoderProcessOutput(this->ptr_jxl.get(), &next_out, &avail_out);
-                if (JXL_ENC_ERROR == process_result)
-                    return;
-                const size_t write_size = buffer_size - avail_out;
-                fmt::println("{}", write_size);
-                stream.write(reinterpret_cast<const char*>(compressed.data()), write_size);
-            }
-            stream.flush();
-            stream.close();
-            fmt::println("encode finished, {}", status == JxlEncoderStatus::JXL_ENC_SUCCESS);
+        fmt::println("encode finished, {}", status == JxlEncoderStatus::JXL_ENC_SUCCESS);
         }
 private:
     JxlEncoderPtr ptr_jxl; 
     JxlEncoderFrameSettings* settings;
     OutputProcessor outputProcessor;
 }; 
-
