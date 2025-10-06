@@ -25,12 +25,22 @@ fmt()
 
 # opencv
 set(OPENCV_MAP_IMPORTED_CONFIG "")
+find_package(Eigen3 QUIET) # litertlly opencv being weird if built on linux 
+find_package(Iconv QUIET)
 find_package(OpenCV REQUIRED PATHS libs/opencv)
+
+# libjxl
+function(libjxl)
+    find_package(PkgConfig)
+    set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${CMAKE_SOURCE_DIR}/libs/libjxl/lib/pkgconfig")
+    pkg_check_modules(Jxl REQUIRED IMPORTED_TARGET libjxl libjxl_cms libjxl_threads libbrotlicommon)
+endfunction(libjxl)
+libjxl()
 
 # main executable
 add_executable(csys src/main.cpp)
-
 target_link_libraries(csys 
     PUBLIC fmt::fmt
+    PUBLIC PkgConfig::Jxl
     PUBLIC ${OpenCV_LIBS}
 )

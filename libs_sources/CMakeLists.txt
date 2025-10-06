@@ -20,6 +20,28 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 include(ExternalProject)
 
+ExternalProject_Add(
+    libjxl
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/libjxl/"
+    BINARY_DIR "${CMAKE_BINARY_DIR}/libjxl/"
+    INSTALL_DIR "${CMAKE_SOURCE_DIR}/../libs/libjxl"
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_CXX_STANDARD=23
+        -DCMAKE_C_STANDARD=23 
+        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_TESTING=OFF
+)
+
+# so opencv can find libjxl when configuring
+# set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${CMAKE_SOURCE_DIR}/../libs/libjxl/lib/pkgconfig")
+# ExternalProject_Add_Step(libjxl PATCH_PC 
+#     DEPENDEES build
+#     DEPENDERS install # for some reason opencv's findjpegxl.cmake looks for jxl.pc instead of libjxl.pc
+#     COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/libjxl/lib/libjxl.pc" "${CMAKE_SOURCE_DIR}/../libs/libjxl/lib/pkgconfig/jxl.pc"
+# )
+
 # opencv source -> libs/opencv
 ExternalProject_Add(
     OpenCV_External
@@ -29,8 +51,8 @@ ExternalProject_Add(
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_CXX_STANDARD=23
-        -DCMAKE_C_STANDARD=23
+        -DCMAKE_CXX_STANDARD=17
+        -DCMAKE_C_STANDARD=17
         -DBUILD_SHARED_LIBS=OFF # off cuz we aren't installing to a normal location so we won't have the right env vars
         -DBUILD_EXAMPLES=OFF
         -DBUILD_TESTS=OFF
@@ -43,4 +65,8 @@ ExternalProject_Add(
         -DBUILD_opencv_python3=OFF
         -DBUILD_JAVA=OFF
         -DOPENCV_EXTRA_MODULES_PATH:PATH=<SOURCE_DIR>/../opencv_contrib/modules
+        -DWITH_EIGEN=ON # linux only
+        -DWITH_LAPACK=ON # linux only
+        # -DWITH_JPEGXL=ON
 )
+# ExternalProject_Add_StepDependencies(OpenCV_External configure libjxl)

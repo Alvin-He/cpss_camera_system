@@ -3,6 +3,7 @@ build
 
 # ignore content of libs built from libs_sources
 /libs/opencv/*
+/libs/libjxl/*
 
 # default cmake ignores
 CMakeLists.txt.user
