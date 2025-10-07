@@ -36,20 +36,17 @@ class OutputProcessor {
 
         static void release_buffer(void* opaque, size_t written_bytes) {
             OutputProcessor* self = reinterpret_cast<OutputProcessor*>(opaque);
-            fmt::println("wrote {}", written_bytes);
             self->position += written_bytes;
         };
 
         static void seek(void* opaque, uint64_t position) {
             OutputProcessor* self = reinterpret_cast<OutputProcessor*>(opaque);
             self->position = static_cast<size_t>(position);
-            fmt::println("seek");
         };
 
         static void set_finalized_position(void* opaque, uint64_t finalized_position) {
             OutputProcessor* self = reinterpret_cast<OutputProcessor*>(opaque);
             self->finalPosition = static_cast<size_t>(finalized_position);
-            fmt::println("finalized at {}", finalized_position);
         };
 
         void reset() {
@@ -100,8 +97,9 @@ public:
 
     }
 
-    void Encode(cv::Mat frame, uint64_t frameNum) {
+    uint64_t Encode(cv::Mat frame, uint64_t frameNum) {
         JxlEncoderReset(GetEncPtr());
+        this->outputProcessor.reset();
 
         JxlEncoderStatusChecker check;
         JxlEncoderFrameSettings* settings = JxlEncoderFrameSettingsCreate(ptr_jxl.get(), NULL);
@@ -115,8 +113,6 @@ public:
 
         check = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, 1);
         check = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_DECODING_SPEED, 0);
-
-
         
         JxlDataType dtype; 
         uint32_t exponent_bits;
@@ -198,9 +194,9 @@ public:
         JxlEncoderCloseInput(GetEncPtr()); 
 
         check = JxlEncoderFlushInput(GetEncPtr());
-        this->outputProcessor.writeFile(frameNum);
 
-        fmt::println("encode finished");
+        return this->outputProcessor.finalSize();
+        // this->outputProcessor.writeFile(frameNum);
     }
     
 protected:
