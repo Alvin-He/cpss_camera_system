@@ -37,9 +37,8 @@ int main(int argc, char** argv) {
         }
         fmt::println("{}", i);
         i += 1;
-        if (i == 10) {
-            encoder.Encode(frame);
-            break;
+        if (i >= 10) {
+            encoder.Encode(frame, i);
         }
     }
 

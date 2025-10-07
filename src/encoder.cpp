@@ -23,10 +23,14 @@ class OutputProcessor {
 
         static void* get_buffer(void* opaque, size_t* size) {
             OutputProcessor* self = reinterpret_cast<OutputProcessor*>(opaque);
-            // basic string is better than std::vector cuz of this one feature lmao
-            // why tf did wg21 not give std::vector resize_and_overwrite
-            self->buffer.resize_and_overwrite(self->position + *size, [](uint8_t*, size_t s){ return s; });
-            fmt::println("extend {}", self->position + *size);
+            
+            // memory allocation optimzation to reuse old buffers if large enough
+            if (self->buffer.size() < self->position + *size) {
+                // basic string is better than std::vector cuz of this one feature lmao
+                // why tf did wg21 not give std::vector resize_and_overwrite
+                self->buffer.resize_and_overwrite(self->position + *size, [](uint8_t*, size_t s){ return s; });
+                fmt::println("extend to {}", self->position + *size);
+            }
             return self->buffer.data() + self->position; 
         };
 
@@ -45,7 +49,7 @@ class OutputProcessor {
         static void set_finalized_position(void* opaque, uint64_t finalized_position) {
             OutputProcessor* self = reinterpret_cast<OutputProcessor*>(opaque);
             self->finalPosition = static_cast<size_t>(finalized_position);
-            fmt::println("finished {}", finalized_position);
+            fmt::println("finalized at {}", finalized_position);
         };
 
         void reset() {
@@ -57,9 +61,13 @@ class OutputProcessor {
             return this->buffer.data(); 
         }
 
-        void writeFile() {
+        uint64_t finalSize() {
+            return this->finalPosition;
+        }
+
+        void writeFile(uint64_t frameNum) {
             std::ofstream fileStream; 
-            fileStream.open("test.jxl");
+            fileStream.open(fmt::format("./frameseq/test{}.jxl", frameNum), std::ios::out | std::ios::binary);
             fileStream.write(reinterpret_cast<const char*>(this->buffer.data()), this->finalPosition); 
             fileStream.flush();
             fileStream.close();
@@ -73,22 +81,43 @@ class OutputProcessor {
 
 };
 
+class JxlEncoderStatusChecker {
+public:
+    JxlEncoderStatusChecker& operator=(JxlEncoderStatus value) {
+        if (value == JXL_ENC_ERROR) {
+            throw std::runtime_error("Got unexpected JXL_ENC_ERROR!"); 
+        }
+        return *this;
+    }
+};
+
 class Encoder {
 public:
     Encoder():
         ptr_jxl(JxlEncoderMake(NULL)) 
     {
-        this->settings = JxlEncoderFrameSettingsCreate(ptr_jxl.get(), NULL);
-        
         OutputProcessor proc; 
-
-        JxlBasicInfo info {}; 
-        JxlEncoderInitBasicInfo(&info);
 
     }
 
-    void Encode(cv::Mat frame) {
+    void Encode(cv::Mat frame, uint64_t frameNum) {
+        JxlEncoderReset(GetEncPtr());
 
+        JxlEncoderStatusChecker check;
+        JxlEncoderFrameSettings* settings = JxlEncoderFrameSettingsCreate(ptr_jxl.get(), NULL);
+        
+        JxlBasicInfo basicInfo;
+        JxlEncoderInitBasicInfo(&basicInfo); 
+
+        check = JxlEncoderSetFrameLossless(settings, JXL_FALSE);
+        basicInfo.uses_original_profile = JXL_FALSE; // lossless requires true
+        check = JxlEncoderSetFrameDistance(settings, 0.1);
+
+        check = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, 1);
+        check = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_DECODING_SPEED, 0);
+
+
+        
         JxlDataType dtype; 
         uint32_t exponent_bits;
         switch (frame.depth())
@@ -115,14 +144,12 @@ public:
         };
 
         JxlPixelFormat pixelFormat {
-            .num_channels = frame.channels(),
+            .num_channels = static_cast<uint32_t>(frame.channels()),
             .data_type = dtype,
             .endianness = JXL_NATIVE_ENDIAN, 
             .align = 0
         }; 
 
-        JxlBasicInfo basicInfo;
-        JxlEncoderInitBasicInfo(&basicInfo); 
         basicInfo.xsize = frame.cols;
         basicInfo.ysize = frame.rows;
 
@@ -160,32 +187,29 @@ public:
             break;
         }
 
+        check = JxlEncoderSetBasicInfo(GetEncPtr(), &basicInfo);
+
         JxlColorEncoding encoding;
-        JxlEncoderStatus status;
         JxlColorEncodingSetToSRGB(&encoding, pixelFormat.num_channels < 3 ? JXL_TRUE : JXL_FALSE);
+        check = JxlEncoderSetColorEncoding(GetEncPtr(), &encoding); 
         
-        status = JxlEncoderSetBasicInfo(this->ptr_jxl.get(), &basicInfo);
-        
-        status = JxlEncoderSetFrameLossless(settings, JXL_FALSE);
-        status = JxlEncoderSetFrameDistance(settings, 1);
-        basicInfo.uses_original_profile = JXL_FALSE; // lossless requires true
+        check = JxlEncoderSetOutputProcessor(GetEncPtr(), this->outputProcessor);
+        check = JxlEncoderAddImageFrame(settings, &pixelFormat, static_cast<const void*>(image.ptr<uint8_t>()), image.total() * image.elemSize());
+        JxlEncoderCloseInput(GetEncPtr()); 
 
-        status = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, 1);
-        status = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_DECODING_SPEED, 0);
+        check = JxlEncoderFlushInput(GetEncPtr());
+        this->outputProcessor.writeFile(frameNum);
 
-        status = JxlEncoderSetColorEncoding(this->ptr_jxl.get(), &encoding); 
-        status = JxlEncoderSetOutputProcessor(this->ptr_jxl.get(), this->outputProcessor);
+        fmt::println("encode finished");
+    }
+    
+protected:
+    // returns a pointer to the underlaying encoder
+    constexpr JxlEncoder* GetEncPtr() const noexcept {
+        return this->ptr_jxl.get(); 
+    }
 
-        status = JxlEncoderAddImageFrame(settings, &pixelFormat, static_cast<const void*>(image.ptr<uint8_t>()), image.total() * image.elemSize());
-        JxlEncoderCloseInput(ptr_jxl.get()); 
-
-        status = JxlEncoderFlushInput(this->ptr_jxl.get());
-        this->outputProcessor.writeFile();
-
-        fmt::println("encode finished, {}", status == JxlEncoderStatus::JXL_ENC_SUCCESS);
-        }
 private:
     JxlEncoderPtr ptr_jxl; 
-    JxlEncoderFrameSettings* settings;
     OutputProcessor outputProcessor;
 }; 
