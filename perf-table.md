@@ -1,5 +1,5 @@
 ### all recorded on alvin's laptop running in wsl with laptop plugged in and set to high performance mode
-
+### this is approx ~1 minute of camera running time at around 30 fps
 ### all tested conducted at a resolution of 1280x720 and a effort of 1
 | Mode     | Frame Count | Time Spent Encoding | Avg Speed | Raw Size | Compressed Size | Compression Ratio |
 | -------- | ----------- | ------------------- | --------- | -------- | --------------- | ----------------- |

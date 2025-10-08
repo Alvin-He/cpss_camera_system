@@ -6,7 +6,8 @@
 #include "jxl/encode_cxx.h"
 #include <memory_resource>
 #include <fstream>
-
+// #include "jxls.cpp"
+#include "jxl/resizable_parallel_runner_cxx.h"
 class OutputProcessor {
     public: 
         OutputProcessor() {}
@@ -91,10 +92,11 @@ public:
 class Encoder {
 public:
     Encoder():
-        ptr_jxl(JxlEncoderMake(NULL)) 
+        ptr_jxl(JxlEncoderMake(NULL)),
+        outputProcessor(), 
+        ptr_threadpool(JxlResizableParallelRunnerMake(NULL))
     {
-        OutputProcessor proc; 
-
+        JxlResizableParallelRunnerSetThreads(ptr_threadpool.get(), 32);
     }
 
     uint64_t Encode(cv::Mat frame, uint64_t frameNum) {
@@ -107,11 +109,12 @@ public:
         JxlBasicInfo basicInfo;
         JxlEncoderInitBasicInfo(&basicInfo); 
 
+        check = JxlEncoderSetFrameDistance(settings, 1);
         check = JxlEncoderSetFrameLossless(settings, JXL_FALSE);
         basicInfo.uses_original_profile = JXL_FALSE; // lossless requires true
-        check = JxlEncoderSetFrameDistance(settings, 0.1);
 
-        check = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, 1);
+        // if lossless, don't do d=1 cuz hella blocking happens
+        check = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, 2);
         check = JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_DECODING_SPEED, 0);
         
         JxlDataType dtype; 
@@ -178,6 +181,7 @@ public:
         case 1: 
             if (frame.isContinuous()) image = frame;
             else image = frame.clone(); 
+            break;
         default:
             throw std::runtime_error(fmt::format("Encoder cannot handle frame with {} channels", frame.channels())); 
             break;
@@ -190,15 +194,20 @@ public:
         check = JxlEncoderSetColorEncoding(GetEncPtr(), &encoding); 
         
         check = JxlEncoderSetOutputProcessor(GetEncPtr(), this->outputProcessor);
+        check = JxlEncoderSetParallelRunner(GetEncPtr(), JxlResizableParallelRunner, this->ptr_threadpool.get());
         check = JxlEncoderAddImageFrame(settings, &pixelFormat, static_cast<const void*>(image.ptr<uint8_t>()), image.total() * image.elemSize());
         JxlEncoderCloseInput(GetEncPtr()); 
 
         check = JxlEncoderFlushInput(GetEncPtr());
 
-        return this->outputProcessor.finalSize();
         // this->outputProcessor.writeFile(frameNum);
+
+        return this->outputProcessor.finalSize();
     }
     
+    std::span<uint8_t> GetEncodedFrame() {
+        return {this->outputProcessor.data(), this->outputProcessor.finalSize()};
+    }
 protected:
     // returns a pointer to the underlaying encoder
     constexpr JxlEncoder* GetEncPtr() const noexcept {
@@ -207,5 +216,6 @@ protected:
 
 private:
     JxlEncoderPtr ptr_jxl; 
+    JxlResizableParallelRunnerPtr ptr_threadpool;
     OutputProcessor outputProcessor;
 }; 
