@@ -55,6 +55,8 @@ void encodeThread() {
         numPixelsEncoded += encodeFrame.total();
         timeSpentEncoding += end - start;
 
+        i++;
+
         uint64_t megaPixelsEncoded = numPixelsEncoded / 1000000;
         auto timeSpentEncodingSecs = std::chrono::duration_cast<std::chrono::duration<double>>(timeSpentEncoding).count();
         auto totalTime = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::system_clock::now() - startTime).count(); 
