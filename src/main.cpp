@@ -23,7 +23,7 @@ bool stopThread = false; // I am not sure how we want to implement stopping the 
 
 void encodeThread() {
     long long i = 0; // I have no idea what index the frames should start at
-
+    bool isEmpty;
 
     std::chrono::nanoseconds timeSpentEncoding {0}; 
     uint64_t numPixelsEncoded = 0;
@@ -34,7 +34,7 @@ void encodeThread() {
 
     while(!stopThread) {
         std::unique_lock<std::mutex> lock(queueMutex);
-        available.wait(lock);
+        available.wait(lock, [] {return !frameQueue.empty() || stopThread; });
         cv::Mat encodeFrame = frameQueue.front();
         frameQueue.pop();
         lock.unlock();
@@ -70,7 +70,7 @@ void encodeThread() {
                 break;
         }
     }
-    std::terminate();
+    //std::terminate();
 }
 
 int main(int argc, char** argv) {
@@ -122,6 +122,9 @@ int main(int argc, char** argv) {
         // cv::imshow("test", frame);
         
         if (cv::waitKey(30) != -1) {
+            stopThread = true;
+            available.notify_all();
+            t.join();
             break;
         }
         
@@ -150,6 +153,10 @@ int main(int argc, char** argv) {
         // }
 
     }
-
+    stopThread = true;
+    available.notify_all();
+    if (t.joinable()) {
+        t.join();
+    }
     return 0;
 }
