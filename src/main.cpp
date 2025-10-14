@@ -10,9 +10,11 @@
 int main(int argc, char** argv) {
     fmt::printf("Hello world from CPSS Camera");
     
+    // uncomment these for video
     // auto cap = cv::VideoCapture(0);
     // cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
 
+    // comment this out for video
     auto cap = cv::VideoCapture("test.mp4");
 
     Encoder encoder {};
@@ -33,6 +35,11 @@ int main(int argc, char** argv) {
         cv::Mat frame;
         cap.read(frame);
         if (frame.total() <= 10) return 0;
+
+        cv::Mat uint8frame;
+        frame.convertTo(uint8frame, CV_8U); 
+        frame = uint8frame;
+
         int64_t timestamp = 0;
         // Frame tframe {
         //     .data = frame.clone(),
@@ -63,6 +70,10 @@ int main(int argc, char** argv) {
         auto totalTime = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::system_clock::now() - startTime).count(); 
         fmt::println("Frame {} \t Total Time: {:.2f}s \t Time Spent Encoding: {:.2f}s \t Current Speed: {:.3f}Mp/s", i, totalTime, timeSpentEncodingSecs, static_cast<double>(megaPixelsEncoded)/timeSpentEncodingSecs);
         fmt::println("Raw: {}mb \t Compressed: {}mB \t Compression Ratio: {:.2f}%", totalRawBytes/1000000, totalDataWrittenBytes/1000000, (((double)totalRawBytes)/totalDataWrittenBytes)*100);
+
+        if ((((((double)i)/30)/60)/60) >= 1) { // 30 frames per second for 1hr
+            break;
+        }
 
         // cv::Mat resDecoded = decoder.Decode(encoder.GetEncodedFrame());
 
